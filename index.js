@@ -1,0 +1,58 @@
+const express = require('express')
+const { createProxyMiddleware } = require('http-proxy-middleware');
+const https = require('https');
+
+const privateKey = `
+-----BEGIN RSA PRIVATE KEY-----
+MIIEogIBAAKCAQEAxZdq+cGAC5u43d74CKlbe0JCSqanqZmZn1kqclPZe7BkvgXo
+r4y/O9HA3AyGVjlxLHwjZZLQ5+KUNyz6DZ822GWcb+X7TluItb3WZYdje6Zg7Dy/
+rqzAKuoxDHOBKLf40befFTDN+H/IocQHBtoNKhVggmc2insDzmp2k67EZK60xuWC
+TZpGmjrZsF9+7xNj/k4ZO43G09QuWttjGa5yYPESoC+fbVA+j7V0wvlO76u2m3hN
+ZMDKk2YkbKMfg2hiR1x8htODy90RFgxMrJtjc9iHHpA/l+SsWp5J89TOpfJj5wKQ
+PLHV9kN4BurVrzIj+USITH3nHgj3M0XTa+RvaQIDAQABAoIBAEOzcOToZu4TShFD
+T2rwVDb0afBYD8Rtq5RMod2QW0klFC+DqMlViUR+xvzekbzDa8KZOiuYVVnOaYhK
+MdcvAUS99A7nFucvN7VFuUsKS4zXYggvfGHmMOXDXlDs1olUF74Lk0dYdIo7hkve
+9aVkWvRbZLjpkmd6ZMB5++z4CbSRCJjY72WjYL95AuO0/FsY94kPdfYPON0TwtU/
+YGNmIWyh3U1y9xmknV+BJcrjzM5DM8dKa7QIBx1WWjTZKFF5pKD2VTO8f0Qae6Ok
+lFxLSE1jMzJTdjSnmyg5J3tCgvN+AAGY9Ak125Ma1ydYVZ/n5++jEvmUmnuvcYBR
+1cdkCAECgYEA/I4LUv9+hYJ4xByeUAj/1ywAS5cG5l+GtF9iLrNBPy++42dM/Lye
+Kw5vH3nKpo6wi434Gvd/h6F+uVXG4iTFh6mJAnu1bR3TISRSknQzhkXUUQxdfYiF
+174/m2kAJrT8z1yJGudjSkHiE+F5mok+BGM+go2YDXOF2V7q/0NdwwECgYEAyElv
+HoFp4MbW7ot3w0PR1HZhj2x9rWkWuHUXql1M2N47EPYkrDyp7LIwTcirDYv+08l+
+eb5fhFiMqdvNGQ02sgvdaomwsEjN9jaPSHSVAOPfbSFAPSaYdmvSmEidv5jvnK9+
+GkCMLgDxJkjbvFBnP4wMQ1L8GnyI03pGZdUTdGkCgYA94qSduuOK3ZSwIX8dh4cB
+d9O+sgxLyR6d9j19ygjz7cQtvvNbfvCXBltucA6bT52tJKWmHf2PA6Ck04L/iRkq
+C/35sMydJ1DD7z2Yi4bQoS3MimYiS6DYY9L8Rvd1hKXqPfeOsyJeYNSAIKEGoBil
+RJhdr0qSCTvELwEQebZxAQKBgEJopuF0g4i2JVnfAIzMFezee6a0kE9JQvFSUdB5
+MxvNQ8Rx+OLrEmSbCI0h9iV9v7a1Xqw7RSx6t9kyOiUOTo5mhLnogZ9R5Ii4unWJ
+wkYTSGfE2Knt/Ct3wNIhcbyvlvNa9PL7Z/9w7ISHL+SWvEVDyGUiRNj7ZdrI9kKZ
+jePRAoGAC/Wf4KhTRrWoxjBRdf0ma7oQgFsLd7AIJ40OpNBN0zopVMyXt1DADZEI
+qBNKqcixA8WIE7de6G2G267cm+zkeQjuqEgP/JUxafrTtDq4CR5umkTf+nT7LrYg
+l2shPtslJEQtyPXZuc0KcnDC7aklcO4vQcqdJAb0NU4xzTOhdPc=
+-----END RSA PRIVATE KEY-----`
+
+const publicKey = `
+-----BEGIN CERTIFICATE-----
+MIICwzCCAaugAwIBAgIJAO44KqMpvfyHMA0GCSqGSIb3DQEBBQUAMBQxEjAQBgNV
+BAMTCWxvY2FsaG9zdDAeFw0yMTA4MTcxNDM3MjdaFw0zMTA4MTUxNDM3MjdaMBQx
+EjAQBgNVBAMTCWxvY2FsaG9zdDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoC
+ggEBAMWXavnBgAubuN3e+AipW3tCQkqmp6mZmZ9ZKnJT2XuwZL4F6K+MvzvRwNwM
+hlY5cSx8I2WS0OfilDcs+g2fNthlnG/l+05biLW91mWHY3umYOw8v66swCrqMQxz
+gSi3+NG3nxUwzfh/yKHEBwbaDSoVYIJnNop7A85qdpOuxGSutMblgk2aRpo62bBf
+fu8TY/5OGTuNxtPULlrbYxmucmDxEqAvn21QPo+1dML5Tu+rtpt4TWTAypNmJGyj
+H4NoYkdcfIbTg8vdERYMTKybY3PYhx6QP5fkrFqeSfPUzqXyY+cCkDyx1fZDeAbq
+1a8yI/lEiEx95x4I9zNF02vkb2kCAwEAAaMYMBYwFAYDVR0RBA0wC4IJbG9jYWxo
+b3N0MA0GCSqGSIb3DQEBBQUAA4IBAQCGyKGNVsUMMHi/buG9Bwy+z40Qa9QR13pq
+RD5eFbMAQHoXlfGUBXxUyY6mmSnf4k4zMltz2IF+2veDnoiGesFiird1lS8yYc9S
+1w344sl4wTmpZ26kL470QBhQEo3u2s6xhltpke8D0m8dn9A0w8TUBIDQM+f2BaxJ
+mNKukxBtzLL1MJeBuZceE+1xysPet6yZ6UScLctC2LJmiaPcR32R4G/LBdcyLcBw
+6G2GNhcpv0/nGttec/YO9kHjj42nwr3zcZe1owuOseDZMMEXc1vZWM6ZQtMnV8Sd
+GSPzgg4WEPu+cdJyvVDHGT3O5CHVsd0NnKbKZ7QNpokwBDWpLYFy
+-----END CERTIFICATE-----`
+
+
+const app = express();
+
+app.use('/', createProxyMiddleware({target: 'http://localhost:8080/', changeOrigin: true}));
+
+https.createServer({key: privateKey, cert: publicKey}, app).listen(3000)
